@@ -22,7 +22,7 @@ func InitializeClient(provider string) error {
 				return err
 			}
 			instance.statsdc = statsd
-		} else {
+		} else if provider != "" {
 			statsd, err := statsd.New(provider)
 			if err != nil {
 				return err
