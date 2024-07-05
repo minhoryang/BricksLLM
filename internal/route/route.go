@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	neturl "net/url"
 	"strings"
 	"time"
 
@@ -366,12 +367,20 @@ func (r *Route) RunSteps(req *Request, rec recorder, log *zap.Logger) (*Response
 
 			res, err := req.Client.Do(hreq)
 			lastErr = err
+			timeout := false
+			if e, ok := err.(*neturl.Error); ok {
+				timeout = e.Timeout()
+			}
 			stopStep = idx
 
 			evt.LatencyInMs = int(time.Since(req.Start).Milliseconds())
-			evt.Status = res.StatusCode
+			if timeout {
+				evt.Status = 504
+			} else { // FIXME: possible access violation in `res`.
+				evt.Status = res.StatusCode
+			}
 
-			if res.StatusCode != http.StatusOK && currentRetry != totalRetries {
+			if (timeout || res.StatusCode != http.StatusOK) && currentRetry != totalRetries {
 				go func(input *event.Event) {
 					err := rec.RecordEvent(input)
 					if err != nil {
